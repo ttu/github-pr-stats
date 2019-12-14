@@ -13,8 +13,10 @@ namespace GitHubPullRequestFetcher
         private static void Main()
         {
             Log.Logger = new LoggerConfiguration()
-                                    .WriteTo.Console()
-                                    .MinimumLevel.Information()
+                                    .Enrich.FromLogContext()
+                                    .WriteTo.Console(
+                                        outputTemplate: "{Timestamp:HH:mm:ss} [{Level}] [{SourceContext}] {Message}{NewLine}{Exception}")
+                                    .MinimumLevel.Debug()
                                     .CreateLogger();
 
             var token = "TOKEN_HERE";
@@ -29,9 +31,9 @@ namespace GitHubPullRequestFetcher
             var waiter = new Waiter();
 
             var registry = new Registry();
-            registry.Schedule(() => new FetchUsers(dataStore, httpClient, waiter).Execute()).ToRunNow().AndEvery(1).Days();
-            registry.Schedule(() => new FetchPullRequests(dataStore, httpClient, waiter).Execute()).ToRunNow().AndEvery(4).Hours();
-            registry.Schedule(() => new FetchUserPrList(dataStore, httpClient, waiter).Execute()).ToRunNow().AndEvery(12).Hours();
+            registry.Schedule(() => new FetchUsers(dataStore, httpClient, waiter, Log.ForContext<FetchUsers>()).Execute()).ToRunNow().AndEvery(1).Days();
+            registry.Schedule(() => new FetchPullRequests(dataStore, httpClient, waiter, Log.ForContext<FetchPullRequests>()).Execute()).ToRunNow().AndEvery(4).Hours();
+            registry.Schedule(() => new FetchUserPrList(dataStore, httpClient, waiter, Log.ForContext<FetchUserPrList>()).Execute()).ToRunNow().AndEvery(12).Hours();
 
             JobManager.Initialize(registry);
 

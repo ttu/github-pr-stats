@@ -16,15 +16,17 @@ namespace GitHubPullRequestFetcher
         private readonly IDataStore _dataStore;
         private readonly HttpClient _client;
         private readonly Waiter _waiter;
+        private readonly ILogger _log;
         private readonly List<Task> _saveTasks = new List<Task>();
 
         private List<User> _allRequests = new List<User>();
 
-        public FetchPullRequests(IDataStore dataStore, HttpClient client, Waiter waiter)
+        public FetchPullRequests(IDataStore dataStore, HttpClient client, Waiter waiter, ILogger log)
         {
             _dataStore = dataStore;
             _client = client;
             _waiter = waiter;
+            _log = log;
         }
 
         public void Execute() => ExecuteAsync().GetAwaiter().GetResult();
@@ -33,7 +35,7 @@ namespace GitHubPullRequestFetcher
         {
             await Policy
                .Handle<FetchFailedException>()
-               .WaitAndRetryAsync(int.MaxValue, (i) => _waiter.GetWaitTime())
+               .WaitAndRetryAsync(int.MaxValue, (i) => _waiter.GetWaitTimeAndLog(_log))
                .ExecuteAsync(async () => await StartFetching());
         }
 
@@ -44,7 +46,7 @@ namespace GitHubPullRequestFetcher
 
             if (_allRequests.Count == 0)
             {
-                Log.Information("Users not fetched to datastore. Waiting for FetchUsers");
+                _log.Information("Users not fetched to datastore. Waiting for FetchUsers");
                 throw new FetchFailedException();
             }
 
@@ -60,7 +62,7 @@ namespace GitHubPullRequestFetcher
 
             var toFetch = _allRequests.Where(e => e?.Last_Update.Date < updateStart.Date).OrderBy(e => e?.Last_Update).ToList();
 
-            Log.Information($"Update user PR count: {toFetch.Count}");
+            _log.Information($"Update user PR count: {toFetch.Count}");
 
             while (toFetch.Any(e => e?.Last_Update.Date < updateStart.Date))
             {
@@ -71,6 +73,7 @@ namespace GitHubPullRequestFetcher
 
                 if (datas.Any(e => e == null))
                 {
+                    _log.Debug($"Waiting for save tasks: {_saveTasks.Count}");
                     await Task.WhenAll(_saveTasks);
                     throw new FetchFailedException();
                 }
@@ -78,7 +81,7 @@ namespace GitHubPullRequestFetcher
                 skip += Constants.BATCH_SIZE;
             }
 
-            Log.Information("Update user PR count ready");
+            _log.Information("Update user PR count ready");
         }
 
         private async Task SaveBatch(IEnumerable<User> datas)
@@ -112,7 +115,7 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = usersBatch.Where(e => e?.Last_Update.Date < updateStamp.Date)?.Select(async user =>
             {
-                Log.Debug($"Request: {user.Login}");
+                _log.Debug($"Request: {user.Login}");
 
                 try
                 {
@@ -121,11 +124,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        Log.Debug($"Request fail: {user.Login}");
+                        _log.Debug($"Request fail: {user.Login}");
                         return null;
                     }
 
-                    Log.Debug($"Request ok: {user.Login}");
+                    _log.Debug($"Request ok: {user.Login}");
 
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);

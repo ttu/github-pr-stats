@@ -15,10 +15,15 @@ namespace GitHubPullRequestFetcher
                             ? TimeSpan.FromSeconds(10)
                             : FromUnixTime(RateLimitResetTime) - DateTime.UtcNow;
 
-            Log.Information($"Waiting for: {waitTime.TotalSeconds} secs");
-
             // Add 1 sec just in case. Sometimes, seems to fail when too close.
             return waitTime.TotalSeconds < 0 ? TimeSpan.FromSeconds(1) : waitTime.Add(TimeSpan.FromSeconds(1));
+        }
+
+        public TimeSpan GetWaitTimeAndLog(ILogger log)
+        {
+            var waitTime = GetWaitTime();
+            log.Information($"Waiting for: {waitTime.TotalSeconds} secs");
+            return waitTime;
         }
 
         private DateTime FromUnixTime(string unixTime) => _epoch.AddSeconds(double.Parse(unixTime));
