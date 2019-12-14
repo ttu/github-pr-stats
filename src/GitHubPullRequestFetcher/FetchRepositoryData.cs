@@ -41,6 +41,9 @@ namespace GitHubPullRequestFetcher
             if (_allRequests.All(e => e.PR_Count != e.Items.Count()))
                 _allRequests = _dataStore.GetCollection<User>().AsQueryable().ToList();
 
+            if (_allRequests.Count == 0) // Users not fetched to datastore
+                throw new FetchFailedException();
+
             await GetPullRequests();
         }
 

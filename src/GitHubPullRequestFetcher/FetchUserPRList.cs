@@ -43,8 +43,13 @@ namespace GitHubPullRequestFetcher
             {
                 var updateStart = DateTimeOffset.UtcNow;
 
-                var usersToUpdate = _dataStore.GetCollection<User>()
-                                        .AsQueryable()
+                var userCollection = _dataStore.GetCollection<User>()
+                                        .AsQueryable();
+
+                if (userCollection.Count() == 0) // Users not fetched to datastore
+                    throw new FetchFailedException();
+
+                var usersToUpdate = userCollection
                                         .Where(u => u.Last_Update.Date < DateTimeOffset.UtcNow.AddDays(-2).Date || u.PR_Count != u.Items.Count)
                                         .ToList();
 

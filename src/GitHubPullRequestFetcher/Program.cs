@@ -22,8 +22,6 @@ namespace GitHubPullRequestFetcher
             using var dataStore = new DataStore("data.json");
             var waiter = new Waiter();
 
-            // TODO: If data.json is empty, we should first request users and then continue with the rest
-
             var registry = new Registry();
             registry.Schedule(() => new FetchUsers(dataStore, httpClient, waiter).Execute()).ToRunNow().AndEvery(1).Days();
             registry.Schedule(() => new FetchPullRequests(dataStore, httpClient, waiter).Execute()).ToRunNow().AndEvery(4).Hours();
