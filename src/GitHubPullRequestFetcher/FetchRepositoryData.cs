@@ -1,6 +1,7 @@
 ﻿using JsonFlatFileDataStore;
 using Newtonsoft.Json;
 using Polly;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,8 +42,11 @@ namespace GitHubPullRequestFetcher
             if (_allRequests.All(e => e.PR_Count != e.Items.Count()))
                 _allRequests = _dataStore.GetCollection<User>().AsQueryable().ToList();
 
-            if (_allRequests.Count == 0) // Users not fetched to datastore
+            if (_allRequests.Count == 0)
+            {
+                Log.Information("Users not fetched to datastore. Waiting for FetchUsers");
                 throw new FetchFailedException();
+            }
 
             await GetPullRequests();
         }
@@ -56,7 +60,7 @@ namespace GitHubPullRequestFetcher
 
             var toFetch = _allRequests.Where(e => e?.Last_Update.Date < updateStart.Date).OrderBy(e => e?.Last_Update).ToList();
 
-            Console.WriteLine($"Update user PR count: {toFetch.Count}");
+            Log.Information($"Update user PR count: {toFetch.Count}");
 
             while (toFetch.Any(e => e?.Last_Update.Date < updateStart.Date))
             {
@@ -74,7 +78,7 @@ namespace GitHubPullRequestFetcher
                 skip += Constants.BATCH_SIZE;
             }
 
-            Console.WriteLine("Update user PR count ready");
+            Log.Information("Update user PR count ready");
         }
 
         private async Task SaveBatch(IEnumerable<User> datas)
@@ -108,7 +112,7 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = usersBatch.Where(e => e?.Last_Update.Date < updateStamp.Date)?.Select(async user =>
             {
-                //Console.WriteLine($"Request: {user.Login}");
+                Log.Debug($"Request: {user.Login}");
 
                 try
                 {
@@ -117,11 +121,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        //Console.WriteLine($"Request fail: {user.Login}");
+                        Log.Debug($"Request fail: {user.Login}");
                         return null;
                     }
 
-                    //Console.WriteLine($"Request ok: {user.Login}");
+                    Log.Debug($"Request ok: {user.Login}");
 
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);

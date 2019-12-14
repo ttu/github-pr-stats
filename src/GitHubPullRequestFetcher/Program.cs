@@ -1,5 +1,6 @@
 ﻿using FluentScheduler;
 using JsonFlatFileDataStore;
+using Serilog;
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -11,6 +12,11 @@ namespace GitHubPullRequestFetcher
     {
         private static void Main()
         {
+            Log.Logger = new LoggerConfiguration()
+                                    .WriteTo.Console()
+                                    .MinimumLevel.Information()
+                                    .CreateLogger();
+
             var token = "TOKEN_HERE";
             var user = "USERNAME_HERE";
             var authString = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{user}:{token}"));
@@ -29,7 +35,7 @@ namespace GitHubPullRequestFetcher
 
             JobManager.Initialize(registry);
 
-            Console.WriteLine("Running");
+            Log.Information("Running");
             Console.ReadLine();
         }
     }

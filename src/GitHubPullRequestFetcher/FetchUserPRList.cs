@@ -1,6 +1,7 @@
 ﻿using JsonFlatFileDataStore;
 using Newtonsoft.Json;
 using Polly;
+using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -46,8 +47,11 @@ namespace GitHubPullRequestFetcher
                 var userCollection = _dataStore.GetCollection<User>()
                                         .AsQueryable();
 
-                if (userCollection.Count() == 0) // Users not fetched to datastore
+                if (userCollection.Count() == 0)
+                {
+                    Log.Information("Users not fetched to datastore. Waiting for FetchUsers");
                     throw new FetchFailedException();
+                }
 
                 var usersToUpdate = userCollection
                                         .Where(u => u.Last_Update.Date < DateTimeOffset.UtcNow.AddDays(-2).Date || u.PR_Count != u.Items.Count)
@@ -79,7 +83,7 @@ namespace GitHubPullRequestFetcher
 
                 var toFetch = _allRequests.Where(e => e.Fetched == false).OrderBy(e => e.Last_Update).ToList();
 
-                Console.WriteLine($"UpdateUserPRList requests: {toFetch.Count}");
+                Log.Information($"UpdateUserPRList requests: {toFetch.Count}");
 
                 while (toFetch.Any(e => e.Fetched == false))
                 {
@@ -103,7 +107,7 @@ namespace GitHubPullRequestFetcher
             await Task.WhenAll(_dataSaveTasks);
             _dataSaveTasks.Clear();
 
-            Console.WriteLine("UpdateUserPRList ready");
+            Log.Information("UpdateUserPRList ready");
         }
 
         private async Task SaveBatchToDataStore(IEnumerable<UserPrRequest> datas)
@@ -137,7 +141,8 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = usersBatch.Where(e => e.Fetched == false).Select(async user =>
             {
-                //Console.WriteLine($"Request: {user.Login} - {user.Page}");
+                Log.Debug($"Request: {user.Login} - {user.Page}");
+
                 try
                 {
                     var response = await _client.GetAsync($"https://api.github.com/search/issues?per_page=100&q=author%3A{user.Login}+type%3Apr&page={user.Page}");
@@ -145,12 +150,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        //Console.WriteLine($"Request fail: {user.Login} - {user.Page}");
-
+                        Log.Debug($"Request fail: {user.Login} - {user.Page}");
                         return null;
                     }
 
-                    //Console.WriteLine($"Request ok: {user.Login} - {user.Page}");
+                    Log.Debug($"Request ok: {user.Login} - {user.Page}");
 
                     if (user.Page == 1 && response.Headers.Contains("Link"))
                     {
