@@ -8,20 +8,21 @@ namespace GitHubPullRequestFetcher
     public class UsersRequest
     {
         public int Page { get; set; }
-        public List<User> Items { get; set; }
+        public List<User> Items { get; set; } = new List<User>();
+        public bool Fetched { get; set; }
     }
 
     public class UserResponseResult
     {
         public int Total_Count { get; set; }
-        public List<User> Items { get; set; }
+        public List<User> Items { get; set; } = new List<User>();
     }
 
     public class PrResponse
     {
         public string Id { get; set; }
         public int Total_Count { get; set; }
-        public List<PullRequest> Items { get; set; }
+        public List<PullRequest> Items { get; set; } = new List<PullRequest>();
     }
 
     public class User

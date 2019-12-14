@@ -1,15 +1,23 @@
 # GitHub PR Statistics
 
-Create statistics of user's pull requests
+Create statistics of users pull requests
 
-#### Uses
+#### Libraries
 
-##### Polly 
+* Polly 
+* FluentScheduler
 
-##### FluentScheduler
+#### GitHub API
 
-### GitHub API
+##### Token
 
+Create GitHub Personal Access Token. No scopes are required.
+
+#### Rate limits
+
+GitHub has request rate limits. Server will return `403 Forbidden` when all requests are used. Request has reset time in `X-RateLimit-Reset` header.
+
+##### Endpoints
 
 Pull requests from specific user
 ```
@@ -21,7 +29,7 @@ Define page
 https://api.github.com/search/issues?q=author%3Attu+type%3Apr&page=2
 ```
 
-List users
+List users from finland
 
 ```
 https://api.github.com/search/users?q=location:finland

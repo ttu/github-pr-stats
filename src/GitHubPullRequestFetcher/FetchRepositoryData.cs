@@ -38,7 +38,7 @@ namespace GitHubPullRequestFetcher
 
         private async Task StartFetching()
         {
-            if (_allRequests.All(e => e.Items != null))
+            if (_allRequests.All(e => e.PR_Count != e.Items.Count()))
                 _allRequests = _dataStore.GetCollection<User>().AsQueryable().ToList();
 
             await GetPullRequests();
@@ -87,14 +87,11 @@ namespace GitHubPullRequestFetcher
 
                                      if (fromDb.PR_Count != fromDb.Items.Count)
                                      {
-                                         if (user.Items != null)
+                                         foreach (var i in user.Items)
                                          {
-                                             foreach (var i in user.Items)
-                                             {
-                                                 if (fromDb.Items.Any(e => e.Id == i.Id) == false)
-                                                     fromDb.Items.Add(i);
-                                             };
-                                         }
+                                             if (fromDb.Items.Any(e => e.Id == i.Id) == false)
+                                                 fromDb.Items.Add(i);
+                                         };
                                      }
 
                                      await _dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
@@ -116,9 +113,8 @@ namespace GitHubPullRequestFetcher
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        _waiter.RateLimitReset = response.Headers.SingleOrDefault(h => h.Key == "X-RateLimit-Reset").Value?.First();
+                        _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
                         //Console.WriteLine($"Request fail: {user.Login}");
-
                         return null;
                     }
 
@@ -127,7 +123,7 @@ namespace GitHubPullRequestFetcher
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);
                     user.PR_Count = resultObject.Total_Count;
-                    user.Items = resultObject.Items ?? new List<PullRequest>();
+                    user.Items = resultObject.Items;
                     user.Last_Update = updateStamp;
                     user.PR_Count = user.PR_Count == 0 && user.Items.Count > 0 ? -1 : user.PR_Count;
 

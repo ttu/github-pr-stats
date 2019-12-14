@@ -112,19 +112,13 @@ namespace GitHubPullRequestFetcher
                                      fromDb.Last_Update = userRequest.Last_Update;
                                      fromDb.PR_Count = userRequest.PR_Count;
 
-                                     if (fromDb.Items == null)
-                                         fromDb.Items = new List<PullRequest>();
-
                                      if (fromDb.PR_Count != fromDb.Items.Count)
                                      {
-                                         if (userRequest.Items != null)
+                                         foreach (var i in userRequest.Items)
                                          {
-                                             foreach (var i in userRequest.Items)
-                                             {
-                                                 if (fromDb.Items.Any(e => e.Id == i.Id) == false)
-                                                     fromDb.Items.Add(i);
-                                             };
-                                         }
+                                             if (fromDb.Items.Any(e => e.Id == i.Id) == false)
+                                                 fromDb.Items.Add(i);
+                                         };
                                      }
 
                                      await _dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
@@ -145,7 +139,7 @@ namespace GitHubPullRequestFetcher
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        _waiter.RateLimitReset = response.Headers.SingleOrDefault(h => h.Key == "X-RateLimit-Reset").Value?.First();
+                        _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
                         //Console.WriteLine($"Request fail: {user.Login} - {user.Page}");
 
                         return null;
@@ -159,7 +153,7 @@ namespace GitHubPullRequestFetcher
                         var lastLink = links.First().Split(',').Last();
                         var start = lastLink.IndexOf("&page=") + 6;
                         var end = lastLink.IndexOf(">");
-                        var lastPageNum = Convert.ToInt32(lastLink.Substring(start, end - start));
+                        var lastPageNum = int.Parse(lastLink[start..end]);
 
                         // We are already requesting Page=1 so start from Page=2
                         var allUserRequests = Enumerable.Range(2, lastPageNum - 1).Select(idx => new UserPrRequest
@@ -177,7 +171,7 @@ namespace GitHubPullRequestFetcher
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);
                     user.PR_Count = resultObject.Total_Count;
-                    user.Items = resultObject.Items ?? new List<PullRequest>();
+                    user.Items = resultObject.Items;
                     user.Last_Update = updateStamp;
                     user.Fetched = true;
                     user.PR_Count = user.PR_Count == 0 && user.Items.Count > 0 ? -1 : user.PR_Count;
@@ -199,9 +193,7 @@ namespace GitHubPullRequestFetcher
             public int Page { get; set; }
             public int GitHubId { get; set; }
             public int PR_Count { get; set; }
-
             public List<PullRequest> Items { get; set; } = new List<PullRequest>();
-
             public DateTimeOffset Last_Update { get; set; }
             public bool Fetched { get; set; }
         }

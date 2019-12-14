@@ -12,7 +12,7 @@ namespace GitHubPullRequestFetcher
 {
     internal class FetchUsers
     {
-        private string _url = "https://api.github.com/search/users?per_page=100&q=location:finland+repos:%3E5+followers:%3E5&page=";
+        private static readonly string URL = $"https://api.github.com/search/users?per_page=100&q=location:{Constants.COUNTRY}+repos:%3E{Constants.MIN_REPOS}+followers:%3E{Constants.MIN_FOLLOWERS}&page=";
 
         private readonly IDataStore _dataStore;
         private readonly HttpClient _client;
@@ -40,23 +40,28 @@ namespace GitHubPullRequestFetcher
 
         private async Task StartFetching()
         {
-            if (_allRequests.All(e => e.Items != null))
+            if (_allRequests.All(e => e.Fetched))
                 _allRequests = await StartNewUpdate();
 
             await GetUsersList();
         }
 
-
         private async Task<List<UsersRequest>> StartNewUpdate()
         {
             int pageNum = 1;
-            var response = await _client.GetAsync($"{_url}{pageNum}");
+            var response = await _client.GetAsync($"{URL}{pageNum}");
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Console.WriteLine("Unauthorized: Check username and token");
+                throw new Exception("Check username and token");
+            }
 
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
-                var requestsLeft = response.Headers.Single(h => h.Key == "X-RateLimit-Remaining").Value;
-                var reset = response.Headers.Single(h => h.Key == "X-RateLimit-Reset").Value?.First();
-                _waiter.RateLimitReset = reset;
+                //var requestsLeft = response.Headers.Single(h => h.Key == "X-RateLimit-Remaining").Value;
+                var resetTime = response.Headers.Single(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First();
+                _waiter.RateLimitResetTime = resetTime ?? "";
                 Console.WriteLine("First user request failed");
                 throw new FetchFailedException();
             }
@@ -65,14 +70,14 @@ namespace GitHubPullRequestFetcher
             var lastLink = links.First().Split(',').Last();
             var start = lastLink.IndexOf("&page=") + 6;
             var end = lastLink.IndexOf(">");
-            var lastPageNum = Convert.ToInt32(lastLink.Substring(start, end - start));
-
+            var lastPageNum = int.Parse(lastLink[start..end]);
+            
             var allUserRequests = Enumerable.Range(1, lastPageNum).Select(idx => new UsersRequest { Page = idx }).ToList();
 
             var json = await response.Content.ReadAsStringAsync();
             var resultObject = JsonConvert.DeserializeObject<UserResponseResult>(json);
 
-            var r = new UsersRequest { Page = pageNum, Items = resultObject.Items };
+            var r = new UsersRequest { Page = pageNum, Items = resultObject.Items, Fetched = true };
             allUserRequests[0] = r;
 
             return allUserRequests;
@@ -83,11 +88,11 @@ namespace GitHubPullRequestFetcher
             int skip = 0;
             _saveTasks.Clear();
 
-            var toFetch = _allRequests.Where(e => e.Items == null).ToList();
+            var toFetch = _allRequests.Where(e => !e.Fetched).ToList();
 
             Console.WriteLine($"GetUsersList requests: {toFetch.Count}");
 
-            while (toFetch.Any(e => e.Items == null))
+            while (toFetch.Any(e => !e.Fetched))
             {
                 var datas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE));
 
@@ -120,17 +125,17 @@ namespace GitHubPullRequestFetcher
 
         private async Task<IEnumerable<UsersRequest>> HandleBatch(IEnumerable<UsersRequest> requestBatch)
         {
-            var tasks = requestBatch.Where(e => e.Items == null)?.Select(async request =>
+            var tasks = requestBatch.Where(e => !e.Fetched)?.Select(async request =>
             {
                 //Console.WriteLine($"Request: {request.Page}");
 
                 try
                 {
-                    var response = await _client.GetAsync($"{_url}{request.Page}");
+                    var response = await _client.GetAsync($"{URL}{request.Page}");
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        _waiter.RateLimitReset = response.Headers.SingleOrDefault(h => h.Key == "X-RateLimit-Reset").Value?.First();
+                        _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
                         //Console.WriteLine($"Request fail: {request.Page}");
                         return null;
                     }
@@ -141,6 +146,7 @@ namespace GitHubPullRequestFetcher
                     var resultObject = JsonConvert.DeserializeObject<UserResponseResult>(content);
                     var userRequest = requestBatch.Single(e => e.Page == request.Page);
                     userRequest.Items = resultObject.Items;
+                    userRequest.Fetched = true;
                     return userRequest;
                 }
                 catch (HttpRequestException)
