@@ -1,6 +1,7 @@
 ﻿using FluentScheduler;
 using JsonFlatFileDataStore;
 using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -15,8 +16,9 @@ namespace GitHubPullRequestFetcher
             Log.Logger = new LoggerConfiguration()
                                     .Enrich.FromLogContext()
                                     .WriteTo.Console(
-                                        outputTemplate: "{Timestamp:HH:mm:ss} [{Level}] [{SourceContext}] {Message}{NewLine}{Exception}")
-                                    .MinimumLevel.Debug()
+                                        theme: AnsiConsoleTheme.Code,
+                                        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message}{NewLine}{Exception}")
+                                    .MinimumLevel.Information()
                                     .CreateLogger();
 
             var token = "TOKEN_HERE";

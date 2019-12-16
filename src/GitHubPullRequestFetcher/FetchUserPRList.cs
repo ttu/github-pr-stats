@@ -85,7 +85,7 @@ namespace GitHubPullRequestFetcher
 
                 var toFetch = _allRequests.Where(e => e.Fetched == false).OrderBy(e => e.Last_Update).ToList();
 
-                _log.Information($"UpdateUserPRList requests: {toFetch.Count}");
+                _log.Information("{Task} requests: {FetchCount}", "UpdateUserPRList", toFetch.Count);
 
                 while (toFetch.Any(e => e.Fetched == false))
                 {
@@ -96,7 +96,7 @@ namespace GitHubPullRequestFetcher
 
                     if (updatedDatas.Any(e => e == null))
                     {
-                        _log.Debug($"Waiting for save tasks: {_dataSaveTasks.Count}");
+                        _log.Debug("Waiting for save tasks: {SaveCount}", _dataSaveTasks.Count);
                         await Task.WhenAll(_dataSaveTasks);
                         _dataSaveTasks.Clear();
                         throw new FetchFailedException();
@@ -109,7 +109,7 @@ namespace GitHubPullRequestFetcher
             await Task.WhenAll(_dataSaveTasks);
             _dataSaveTasks.Clear();
 
-            _log.Information("UpdateUserPRList ready");
+            _log.Information("{Task} ready", "UpdateUserPRList");
         }
 
         private async Task SaveBatchToDataStore(IEnumerable<UserPrRequest> datas)
@@ -143,7 +143,7 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = usersBatch.Where(e => e.Fetched == false).Select(async user =>
             {
-                _log.Debug($"Request: {user.Login} - {user.Page}");
+                _log.Debug("Request: {UserLogin} - {UserPage}", user.Login, user.Page);
 
                 try
                 {
@@ -152,11 +152,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        _log.Debug($"Request fail: {user.Login} - {user.Page}");
+                        _log.Debug("Request fail: {UserLogin} - {UserPage}", user.Login, user.Page);
                         return null;
                     }
 
-                    _log.Debug($"Request ok: {user.Login} - {user.Page}");
+                    _log.Debug("Request ok: {UserLogin} - {UserPage}", user.Login, user.Page);
 
                     if (user.Page == 1 && response.Headers.Contains("Link"))
                     {

@@ -62,7 +62,7 @@ namespace GitHubPullRequestFetcher
 
             var toFetch = _allRequests.Where(e => e?.Last_Update.Date < updateStart.Date).OrderBy(e => e?.Last_Update).ToList();
 
-            _log.Information($"Update user PR count: {toFetch.Count}");
+            _log.Information("{Task} requests: {FetchCount}", "Update user PR Count", toFetch.Count);
 
             while (toFetch.Any(e => e?.Last_Update.Date < updateStart.Date))
             {
@@ -73,7 +73,7 @@ namespace GitHubPullRequestFetcher
 
                 if (datas.Any(e => e == null))
                 {
-                    _log.Debug($"Waiting for save tasks: {_saveTasks.Count}");
+                    _log.Debug("Waiting for save tasks: {SaveCount}", _saveTasks.Count);
                     await Task.WhenAll(_saveTasks);
                     throw new FetchFailedException();
                 }
@@ -81,7 +81,7 @@ namespace GitHubPullRequestFetcher
                 skip += Constants.BATCH_SIZE;
             }
 
-            _log.Information("Update user PR count ready");
+            _log.Information("{Task} ready", "Update User PR Count");
         }
 
         private async Task SaveBatch(IEnumerable<User> datas)
@@ -115,7 +115,7 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = usersBatch.Where(e => e?.Last_Update.Date < updateStamp.Date)?.Select(async user =>
             {
-                _log.Debug($"Request: {user.Login}");
+                _log.Debug("Request: {UserLogin}", user.Login);
 
                 try
                 {
@@ -124,11 +124,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        _log.Debug($"Request fail: {user.Login}");
+                        _log.Debug("Request fail: {UserLogin}", user.Login);
                         return null;
                     }
 
-                    _log.Debug($"Request ok: {user.Login}");
+                    _log.Debug("Request ok: {UserLogin}", user.Login);
 
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);

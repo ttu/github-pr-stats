@@ -93,7 +93,7 @@ namespace GitHubPullRequestFetcher
 
             var toFetch = _allRequests.Where(e => !e.Fetched).ToList();
 
-            _log.Information($"GetUsersList requests: {toFetch.Count}");
+            _log.Information("{Task} requests: {FetchCount}", "GetUsersList", toFetch.Count);
 
             while (toFetch.Any(e => !e.Fetched))
             {
@@ -111,7 +111,7 @@ namespace GitHubPullRequestFetcher
                 skip += Constants.BATCH_SIZE;
             }
 
-            _log.Information("GetUsersList ready");
+            _log.Information("{Task} ready", "GetUsersList");
         }
 
         private async Task SaveBatch(IEnumerable<UsersRequest> datas)
@@ -130,7 +130,7 @@ namespace GitHubPullRequestFetcher
         {
             var tasks = requestBatch.Where(e => !e.Fetched)?.Select(async request =>
             {
-                _log.Debug($"Request: {request.Page}");
+                _log.Debug("Request: {RequestPage}", request.Page);
 
                 try
                 {
@@ -139,11 +139,11 @@ namespace GitHubPullRequestFetcher
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
                         _waiter.RateLimitResetTime = response.Headers.SingleOrDefault(h => h.Key == Constants.RATE_LIMIT_HEADER).Value?.First() ?? "";
-                        _log.Debug($"Request fail: {request.Page}");
+                        _log.Debug("Request fail: {RequestPage}", request.Page);
                         return null;
                     }
 
-                    _log.Debug($"Request ok: {request.Page}");
+                    _log.Debug("Request ok: {RequestPage}", request.Page);
 
                     var content = await response.Content.ReadAsStringAsync();
                     var resultObject = JsonConvert.DeserializeObject<UserResponseResult>(content);

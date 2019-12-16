@@ -22,7 +22,7 @@ namespace GitHubPullRequestFetcher
         public TimeSpan GetWaitTimeAndLog(ILogger log)
         {
             var waitTime = GetWaitTime();
-            log.Information($"Waiting for: {waitTime.TotalSeconds} secs");
+            log.Information("Waiting: {WaitTime} secs", Math.Round(waitTime.TotalSeconds, 0));
             return waitTime;
         }
 
