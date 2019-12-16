@@ -9,7 +9,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace GitHubPullRequestFetcher
+namespace GitHubStats
 {
     internal class FetchPullRequests
     {

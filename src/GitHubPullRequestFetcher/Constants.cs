@@ -1,4 +1,4 @@
-﻿namespace GitHubPullRequestFetcher
+﻿namespace GitHubStats
 {
     public static class Constants
     {

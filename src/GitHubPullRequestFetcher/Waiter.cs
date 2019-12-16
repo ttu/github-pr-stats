@@ -1,7 +1,7 @@
 ﻿using Serilog;
 using System;
 
-namespace GitHubPullRequestFetcher
+namespace GitHubStats
 {
     public class Waiter
     {
