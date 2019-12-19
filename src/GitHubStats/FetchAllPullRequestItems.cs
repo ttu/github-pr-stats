@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace GitHubStats
 {
-    internal class FetchUserPrList
+    internal class FetchAllPullRequestItems
     {
         private readonly IDataStore _dataStore;
         private readonly HttpClient _client;
@@ -22,7 +22,7 @@ namespace GitHubStats
 
         private ConcurrentBag<UserPrRequest> _allRequests = new ConcurrentBag<UserPrRequest>();
 
-        public FetchUserPrList(IDataStore dataStore, HttpClient client, Waiter waiter, ILogger log)
+        public FetchAllPullRequestItems(IDataStore dataStore, HttpClient client, Waiter waiter, ILogger log)
         {
             _dataStore = dataStore;
             _client = client;
@@ -85,7 +85,7 @@ namespace GitHubStats
 
                 var toFetch = _allRequests.Where(e => e.Fetched == false).OrderBy(e => e.Last_Update).ToList();
 
-                _log.Information("{Task} requests: {FetchCount}", "UpdateUserPRList", toFetch.Count);
+                _log.Information("{Task} requests: {FetchCount}", "Update User PR Items", toFetch.Count);
 
                 while (toFetch.Any(e => e.Fetched == false))
                 {
@@ -109,7 +109,7 @@ namespace GitHubStats
             await Task.WhenAll(_dataSaveTasks);
             _dataSaveTasks.Clear();
 
-            _log.Information("{Task} ready", "UpdateUserPRList");
+            _log.Information("{Task} ready", "Update User PR Items");
         }
 
         private async Task SaveBatchToDataStore(IEnumerable<UserPrRequest> datas)
