@@ -1,5 +1,6 @@
 ﻿using FluentScheduler;
 using JsonFlatFileDataStore;
+using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 using System;
@@ -13,17 +14,21 @@ namespace GitHubStats
     {
         private static void Main()
         {
+            var config = new ConfigurationBuilder()
+                                         .AddJsonFile("appsettings.json")
+                                         .Build();
+
             Log.Logger = CreateLogger();
 
-            var token = "TOKEN_HERE";
-            var user = "USERNAME_HERE";
+            var token = config["gitHub:token"];
+            var user = config["gitHub:userName"];
             var authString = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{user}:{token}"));
 
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authString);
             httpClient.DefaultRequestHeaders.Add("User-Agent", $"{user}");
 
-            var dataStore = new DataStore("data.json");
+            var dataStore = new DataStore(config["dataStore:fileName"]);
             var waiter = new Waiter();
 
             var fetchUsers = new FetchUsers(dataStore, httpClient, waiter, Log.ForContext<FetchUsers>());
