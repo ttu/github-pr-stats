@@ -68,47 +68,24 @@ namespace GitHubStats
             {
                 var datas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE), updateStart);
 
-                var saveTask = SaveBatch(datas);
-                _saveTasks.Add(saveTask);
+                var batchSaveTask = _dataStore.SaveBatch(datas);
+                _saveTasks.Add(batchSaveTask);
 
                 if (datas.Any(e => e == null))
                 {
                     _log.Debug("Waiting for save tasks: {SaveCount}", _saveTasks.Count);
                     await Task.WhenAll(_saveTasks);
+                    _saveTasks.Clear();
                     throw new FetchFailedException();
                 }
 
                 skip += Constants.BATCH_SIZE;
             }
 
+            await Task.WhenAll(_saveTasks);
+            _saveTasks.Clear();
+
             _log.Information("{Task} ready", "Update User PR Count");
-        }
-
-        private async Task SaveBatch(IEnumerable<User> datas)
-        {
-            var tasks = datas.Where(e => e != null)
-                             .Select(user =>
-                             {
-                                 return Task.Run(async () =>
-                                 {
-                                     var fromDb = _dataStore.GetCollection<User>().AsQueryable().First(e => e.GitHubId == user.GitHubId);
-                                     fromDb.Last_Update = user.Last_Update;
-                                     fromDb.PR_Count = user.PR_Count;
-
-                                     if (fromDb.PR_Count != fromDb.Items.Count)
-                                     {
-                                         foreach (var i in user.Items)
-                                         {
-                                             if (fromDb.Items.Any(e => e.Id == i.Id) == false)
-                                                 fromDb.Items.Add(i);
-                                         };
-                                     }
-
-                                     await _dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
-                                 });
-                             });
-
-            await Task.WhenAll(tasks);
         }
 
         private async Task<IEnumerable<User>> HandleBatch(IEnumerable<User> usersBatch, DateTimeOffset updateStamp)

@@ -25,7 +25,15 @@ namespace GitHubStats
         public List<PullRequest> Items { get; set; } = new List<PullRequest>();
     }
 
-    public class User
+    public interface IUserPrData
+    {
+        public int GitHubId { get; set; }
+        public int PR_Count { get; set; }
+        public List<PullRequest> Items { get; set; }
+        public DateTimeOffset Last_Update { get; set; }
+    }
+
+    public class User : IUserPrData
     {
         public int Id { get; set; }
         public int GitHubId { get; set; }

@@ -91,8 +91,8 @@ namespace GitHubStats
                 {
                     var updatedDatas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE), updateStart);
 
-                    var saveTask = SaveBatchToDataStore(updatedDatas);
-                    _dataSaveTasks.Add(saveTask);
+                    var batchSaveTask = _dataStore.SaveBatch(updatedDatas);
+                    _dataSaveTasks.Add(batchSaveTask);
 
                     if (updatedDatas.Any(e => e == null))
                     {
@@ -110,33 +110,6 @@ namespace GitHubStats
             _dataSaveTasks.Clear();
 
             _log.Information("{Task} ready", "Update User PR Items");
-        }
-
-        private async Task SaveBatchToDataStore(IEnumerable<UserPrRequest> datas)
-        {
-            var tasks = datas.Where(e => e != null)
-                             .Select(userRequest =>
-                             {
-                                 return Task.Run(async () =>
-                                 {
-                                     var fromDb = _dataStore.GetCollection<User>().AsQueryable().First(e => e.GitHubId == userRequest.GitHubId);
-                                     fromDb.Last_Update = userRequest.Last_Update;
-                                     fromDb.PR_Count = userRequest.PR_Count;
-
-                                     if (fromDb.PR_Count != fromDb.Items.Count)
-                                     {
-                                         foreach (var i in userRequest.Items)
-                                         {
-                                             if (fromDb.Items.Any(e => e.Id == i.Id) == false)
-                                                 fromDb.Items.Add(i);
-                                         };
-                                     }
-
-                                     await _dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
-                                 });
-                             });
-
-            await Task.WhenAll(tasks);
         }
 
         private async Task<IEnumerable<UserPrRequest>> HandleBatch(IEnumerable<UserPrRequest> usersBatch, DateTimeOffset updateStamp)
@@ -198,7 +171,7 @@ namespace GitHubStats
             return await Task.WhenAll(tasks);
         }
 
-        private class UserPrRequest
+        private class UserPrRequest : IUserPrData
         {
             public string Login { get; set; }
             public int Page { get; set; }
