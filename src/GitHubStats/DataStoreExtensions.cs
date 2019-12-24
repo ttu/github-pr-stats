@@ -10,22 +10,23 @@ namespace GitHubStats
         public static async Task SaveBatch(this IDataStore dataStore, IEnumerable<IUserPrData> datas)
         {
             var tasks = datas.Where(e => e != null)
-                             .Select(async user =>
+                             .Select(user =>
                              {
-                                 var fromDb = dataStore.GetCollection<User>().AsQueryable().First(e => e.GitHubId == user.GitHubId);
-                                 fromDb.Last_Update = user.Last_Update;
-                                 fromDb.PR_Count = user.PR_Count;
-
-                                 if (fromDb.PR_Count != fromDb.Items.Count)
+                                 // Wrap save to a Task as handling large collections gets slow
+                                 return Task.Run(async () =>
                                  {
-                                     foreach (var i in user.Items)
-                                     {
-                                         if (!fromDb.Items.Any(e => e.Id == i.Id))
-                                             fromDb.Items.Add(i);
-                                     };
-                                 }
+                                     var fromDb = dataStore.GetCollection<User>().AsQueryable().First(e => e.GitHubId == user.GitHubId);
+                                     fromDb.Last_Update = user.Last_Update;
+                                     fromDb.PR_Count = user.PR_Count;
 
-                                 await dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
+                                     if (fromDb.PR_Count != fromDb.Items.Count)
+                                     {
+                                         var newItems = user.Items.Where(i => !fromDb.Items.Any(e => e.Id == i.Id));
+                                         fromDb.Items.AddRange(newItems);
+                                     }
+
+                                     return await dataStore.GetCollection<User>().ReplaceOneAsync(e => e.Id == fromDb.Id, fromDb);
+                                 });
                              });
 
             await Task.WhenAll(tasks);
