@@ -12,6 +12,10 @@ using System.Threading.Tasks;
 
 namespace GitHubStats
 {
+    /// <summary>
+    /// Fetch all PR infos
+    /// NOTE: Only the first 1000 search results are available from API v3
+    /// </summary>
     internal class FetchAllPullRequestItems
     {
         private readonly IDataStore _dataStore;
@@ -56,7 +60,7 @@ namespace GitHubStats
                 }
 
                 var usersToUpdate = userCollection
-                                        .Where(u => u.Last_Update.Date < DateTimeOffset.UtcNow.AddDays(-2).Date || u.PR_Count != u.Items.Count)
+                                        .Where(u => (u.Last_Update.Date < DateTimeOffset.UtcNow.AddDays(-2).Date || u.PR_Count != u.Items.Count) && u.Items.Count < 1000)
                                         .ToList();
 
                 var userPrRequests = usersToUpdate.Select(e => new UserPrRequest
@@ -85,10 +89,10 @@ namespace GitHubStats
 
                 var toFetch = _allRequests.Where(e => e.Fetched == false).OrderBy(e => e.Last_Update).ToList();
 
-                _log.Information("{Task} requests: {FetchCount}", "Update User PR Items", toFetch.Count);
-
                 while (toFetch.Any(e => e.Fetched == false))
                 {
+                    _log.Information("{Task} requests: {FetchCount}", "Update User PR Items", _allRequests.Where(e => e.Fetched == false).Count());
+
                     var updatedDatas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE), updateStart);
 
                     var batchSaveTask = _dataStore.SaveBatch(updatedDatas);
@@ -96,7 +100,7 @@ namespace GitHubStats
 
                     if (updatedDatas.Any(e => e == null))
                     {
-                        _log.Debug("Waiting for save tasks: {SaveCount}", _dataSaveTasks.Count);
+                        _log.Information("Waiting for save tasks: {SaveCount}", _dataSaveTasks.Where(t => !t.IsCompleted).Count());
                         await Task.WhenAll(_dataSaveTasks);
                         _dataSaveTasks.Clear();
                         throw new FetchFailedException();

@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace GitHubStats
 {
+    /// <summary>
+    /// Fetch all users from GitHub and insert new users to datastore
+    /// </summary>
     internal class FetchUsers
     {
         private static readonly string URL = $"https://api.github.com/search/users?per_page=100&q=location:{Constants.COUNTRY}+repos:%3E{Constants.MIN_REPOS}+followers:%3E{Constants.MIN_FOLLOWERS}&page=";
@@ -99,7 +102,7 @@ namespace GitHubStats
             {
                 var datas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE));
 
-                var saveTask = SaveBatch(datas);
+                var saveTask = InsertNewUsers(datas);
                 _saveTasks.Add(saveTask);
 
                 if (datas.Any(e => e == null))
@@ -114,15 +117,15 @@ namespace GitHubStats
             _log.Information("{Task} ready", "GetUsersList");
         }
 
-        private async Task SaveBatch(IEnumerable<UsersRequest> datas)
+        private async Task InsertNewUsers(IEnumerable<UsersRequest> datas)
         {
             var users = datas.Where(e => e != null).SelectMany(e => e.Items).ToList();
             users.ForEach(u => u.GitHubId = u.Id);
 
             var collection = _dataStore.GetCollection<User>();
-            var query = collection.AsQueryable();
+            var allUsersQuery = collection.AsQueryable();
 
-            var toAdd = users.Where(u => query.Any(e => e.GitHubId == u.GitHubId) == false).ToList();
+            var toAdd = users.Where(u => !allUsersQuery.Any(e => e.GitHubId == u.GitHubId)).ToList();
             await collection.InsertManyAsync(toAdd);
         }
 

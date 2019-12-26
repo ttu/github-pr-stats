@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace GitHubStats
 {
+    /// <summary>
+    /// Update users PR count and max first 100 PR infos
+    /// </summary>
     internal class FetchPullRequests
     {
         private readonly IDataStore _dataStore;
@@ -62,10 +65,10 @@ namespace GitHubStats
 
             var toFetch = _allRequests.Where(e => e?.Last_Update.Date < updateStart.Date).OrderBy(e => e?.Last_Update).ToList();
 
-            _log.Information("{Task} requests: {FetchCount}", "Update user PR Count", toFetch.Count);
-
             while (toFetch.Any(e => e?.Last_Update.Date < updateStart.Date))
             {
+                _log.Information("{Task} requests: {FetchCount}", "Update user PR Count", toFetch.Count - skip);
+
                 var datas = await HandleBatch(toFetch.Skip(skip).Take(Constants.BATCH_SIZE), updateStart);
 
                 var batchSaveTask = _dataStore.SaveBatch(datas);
@@ -73,7 +76,7 @@ namespace GitHubStats
 
                 if (datas.Any(e => e == null))
                 {
-                    _log.Debug("Waiting for save tasks: {SaveCount}", _saveTasks.Count);
+                    _log.Information("Waiting for save tasks: {SaveCount}", _saveTasks.Where(t => !t.IsCompleted).Count());
                     await Task.WhenAll(_saveTasks);
                     _saveTasks.Clear();
                     throw new FetchFailedException();
@@ -108,11 +111,11 @@ namespace GitHubStats
                     _log.Debug("Request ok: {UserLogin}", user.Login);
 
                     var content = await response.Content.ReadAsStringAsync();
-                    var resultObject = JsonConvert.DeserializeObject<PrResponse>(content);
-                    user.PR_Count = resultObject.Total_Count;
-                    user.Items = resultObject.Items;
+                    var result = JsonConvert.DeserializeObject<PrResponse>(content);
+                    // Why is result Total_Count sometimes 0?
+                    user.PR_Count = result.Total_Count == 0 && result.Items.Count > 0 ? -1 : result.Total_Count;
+                    user.Items = result.Items;
                     user.Last_Update = updateStamp;
-                    user.PR_Count = user.PR_Count == 0 && user.Items.Count > 0 ? -1 : user.PR_Count;
 
                     return user;
                 }
