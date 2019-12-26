@@ -34,6 +34,7 @@ namespace GitHubStats
             var fetchUsers = new FetchUsers(dataStore, httpClient, waiter, Log.ForContext<FetchUsers>());
             var fetchPullRequests = new FetchPullRequests(dataStore, httpClient, waiter, Log.ForContext<FetchPullRequests>());
             var fetchAllPrItems = new FetchAllPullRequestItems(dataStore, httpClient, waiter, Log.ForContext<FetchAllPullRequestItems>());
+            var fetchRepositories = new FetchRepositories(dataStore, httpClient, waiter, Log.ForContext<FetchRepositories>());
 
             // Scheduling is handled in the application, so this should be running all the time
             int mode = 1;
@@ -48,6 +49,7 @@ namespace GitHubStats
                 registry.Schedule(() => fetchUsers.Execute()).ToRunNow().AndEvery(1).Days();
                 registry.Schedule(() => fetchPullRequests.Execute()).ToRunNow().AndEvery(4).Hours();
                 registry.Schedule(() => fetchAllPrItems.Execute()).ToRunNow().AndEvery(12).Hours();
+                registry.Schedule(() => fetchRepositories.Execute()).ToRunNow().AndEvery(12).Hours();
             }
             else
             {
@@ -56,6 +58,7 @@ namespace GitHubStats
                 registry.Schedule(() => fetchUsers.Execute())
                         .AndThen(() => fetchPullRequests.Execute())
                         .AndThen(() => fetchAllPrItems.Execute())
+                        .AndThen(() => fetchRepositories.Execute())
                         .ToRunNow()
                         .AndEvery(4).Hours();
             }

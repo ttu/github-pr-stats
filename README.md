@@ -39,3 +39,13 @@ List users with repo count greater than 5
 ```
 https://api.github.com/search/users?q=location:finland+repos:%3E5
 ```
+
+Repository info
+```
+https://api.github.com/repos/ttu/dotnet-fake-json-server
+```
+
+List repository languages
+```
+https://api.github.com/repos/ttu/dotnet-fake-json-server/languages
+```

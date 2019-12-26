@@ -58,4 +58,11 @@ namespace GitHubStats
         public string Html_Url { get; set; }
         public int PR_Count { get; set; }
     }
+
+    public class Repository
+    {
+        public string Repository_Url { get; set; }
+        public DateTimeOffset Last_Update { get; set; }
+        public Dictionary<string, long> Languages { get; set; } = new Dictionary<string, long>();
+    }
 }
